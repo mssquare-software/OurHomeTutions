@@ -20,6 +20,7 @@ import type { StateBoard, StateSubject } from "../../constants/stateSubjects";
 import { STATE_DATA } from "../../constants/stateSubjects";
 import { useNotifications } from "../hooks/useNotifications";
 import { useTour } from "../tour/useTour";
+import { listSubjects } from "../data/repo/repo";
 
 type Board = "CBSE" | "STATE";
 type LessonType = "Single" | "Group";
@@ -58,6 +59,8 @@ export default function Booking() {
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
   const [board, setBoard] = useState<Board | null>(null);
   const [stateBoard, setStateBoard] = useState<StateBoard | null>(null);
+
+  const [adminSubjects, setAdminSubjects] = useState<{ name: string; topics: string[] }[]>([]);
 
   const [selectedTopics, setSelectedTopics] = useState<
     Record<string, string[] | undefined>
@@ -104,6 +107,31 @@ export default function Booking() {
     const cls = STATE_DATA[stateBoard].find((x) => x.class === selectedClass);
     return cls?.subjects ?? [];
   }, [board, selectedClass, stateBoard]);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const subs = await listSubjects();
+        const mapped = subs
+          .filter((s) => s.isActive !== false)
+          .map((s) => ({
+            name: s.name,
+            topics: (s.topics ?? []).map((t) => t.name),
+          }))
+          .filter((s) => s.name && s.topics.length > 0);
+        setAdminSubjects(mapped);
+      } catch {
+        setAdminSubjects([]);
+      }
+    })();
+  }, []);
+
+  const subjectsToRender = useMemo(() => {
+    if (adminSubjects.length > 0) return adminSubjects;
+    if (board === "CBSE") return subjectsForSelection;
+    if (board === "STATE") return stateSubjectsForSelection;
+    return [];
+  }, [adminSubjects, board, subjectsForSelection, stateSubjectsForSelection]);
 
   const totalHours = useMemo(
     () => Object.values(hoursBySubject).reduce((a, b) => a + (b || 0), 0),
@@ -499,12 +527,9 @@ export default function Booking() {
                 </>
               )}
 
-              {(board === "CBSE" || (board === "STATE" && stateBoard)) && (
+              {((adminSubjects.length > 0) || board === "CBSE" || (board === "STATE" && stateBoard)) && (
                 <>
-                  {(board === "CBSE"
-                    ? subjectsForSelection
-                    : stateSubjectsForSelection
-                  ).map((s) => {
+                  {(subjectsToRender as any[]).map((s: any) => {
                     const chosenTopics = selectedTopics[s.name] ?? [];
                     const hours = hoursBySubject[s.name] ?? 0;
 

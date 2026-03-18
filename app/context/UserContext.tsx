@@ -12,14 +12,17 @@ export const AVATAR_OPTIONS: { id: number; source: number }[] = [
   { id: 5, source: require("../../assets/avatar/fashion-designer.png") },
 ];
 
+type UserRole = "parent" | "admin" | "mentor" | null;
+
 interface UserState {
   email: string | null;
   parentName: string;
   selectedAvatarId: number;
+  role: UserRole;
 }
 
 interface UserContextType extends UserState {
-  setUser: (email: string, parentName: string) => Promise<void>;
+  setUser: (email: string, parentName: string, role: UserRole) => Promise<void>;
   setAvatar: (avatarId: number) => Promise<void>;
   clearUser: () => Promise<void>;
 }
@@ -30,15 +33,17 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   const [email, setEmail] = useState<string | null>(null);
   const [parentName, setParentName] = useState<string>("Parent");
   const [selectedAvatarId, setSelectedAvatarId] = useState<number>(1);
+  const [role, setRole] = useState<UserRole>(null);
 
   useEffect(() => {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(USER_STORAGE_KEY);
         if (raw) {
-          const { email: e, parentName: n } = JSON.parse(raw);
+          const { email: e, parentName: n, role: storedRole } = JSON.parse(raw);
           setEmail(e);
           setParentName(n || "Parent");
+          setRole(storedRole ?? "parent");
           const avatarRaw = await AsyncStorage.getItem(`${AVATAR_STORAGE_KEY}_${e}`);
           if (avatarRaw != null) {
             const num = Math.max(1, Math.min(Number(avatarRaw) || 1, AVATAR_OPTIONS.length));
@@ -55,12 +60,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const setUser = useCallback(async (newEmail: string, newName: string) => {
+  const setUser = useCallback(async (newEmail: string, newName: string, newRole: UserRole) => {
     setEmail(newEmail);
     setParentName(newName);
+    setRole(newRole);
     await AsyncStorage.setItem(
       USER_STORAGE_KEY,
-      JSON.stringify({ email: newEmail, parentName: newName })
+      JSON.stringify({ email: newEmail, parentName: newName, role: newRole })
     );
     try {
       const existing = await AsyncStorage.getItem(`${AVATAR_STORAGE_KEY}_${newEmail}`);
@@ -92,6 +98,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     setEmail(null);
     setParentName("Parent");
     setSelectedAvatarId(1);
+    setRole(null);
     await AsyncStorage.removeItem(USER_STORAGE_KEY);
   }, []);
 
@@ -99,6 +106,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     email,
     parentName,
     selectedAvatarId,
+    role,
     setUser,
     setAvatar,
     clearUser,

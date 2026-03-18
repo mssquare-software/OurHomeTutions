@@ -3,21 +3,23 @@ import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import React, { useState } from "react";
 import {
-  Image,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
+    Image,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
 } from "react-native";
 import { useGlobalLoader } from "../context/LoadingOverlayContext";
 import { AVATAR_OPTIONS, useUser } from "../context/UserContext";
+import { useLanguage } from "../context/LanguageContext";
 
 export default function ParentDashboard() {
   const { show } = useGlobalLoader();
   const { parentName, selectedAvatarId, setAvatar, clearUser } = useUser();
+  const { t } = useLanguage();
   const currentAvatarSource =
     AVATAR_OPTIONS.find((a) => a.id === selectedAvatarId)?.source ?? AVATAR_OPTIONS[0].source;
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -258,16 +260,16 @@ export default function ParentDashboard() {
                 </View>
 
                 {/* Messages Section */}
-                <Text style={styles.sidebarSectionTitle}>Messages</Text>
+                <Text style={styles.sidebarSectionTitle}>{t("sidebar.messages")}</Text>
                 
                 <Pressable style={styles.sidebarListItem}>
                   <Feather name="inbox" size={22} color="#FFFFFF" />
-                  <Text style={styles.sidebarListItemText}>Inbox</Text>
+                  <Text style={styles.sidebarListItemText}>{t("sidebar.inbox")}</Text>
                 </Pressable>
 
                 <View style={styles.sidebarListItem}>
                   <Feather name="bell" size={22} color="#FFFFFF" />
-                  <Text style={styles.sidebarListItemText}>Notifications</Text>
+                  <Text style={styles.sidebarListItemText}>{t("sidebar.notifications")}</Text>
                   <Pressable
                     style={[
                       styles.toggle,
@@ -284,22 +286,41 @@ export default function ParentDashboard() {
                   </Pressable>
                 </View>
 
+                <Pressable
+                  style={styles.sidebarListItem}
+                  onPress={() => {
+                    setSidebarOpen(false);
+                    show();
+                    router.push("/raise-query");
+                  }}
+                >
+                  <Feather name="help-circle" size={22} color="#FFFFFF" />
+                  <Text style={styles.sidebarListItemText}>{t("sidebar.raiseQuery")}</Text>
+                </Pressable>
+
                 {/* Account and Security Section */}
-                <Text style={styles.sidebarSectionTitle}>Account and Security</Text>
+                <Text style={styles.sidebarSectionTitle}>{t("sidebar.accountSecurity")}</Text>
 
                 <Pressable style={styles.sidebarListItem}>
                   <Feather name="user" size={22} color="#FFFFFF" />
-                  <Text style={styles.sidebarListItemText}>Update Account Data</Text>
+                  <Text style={styles.sidebarListItemText}>{t("sidebar.updateAccount")}</Text>
                 </Pressable>
 
-                <Pressable style={styles.sidebarListItem}>
+                <Pressable
+                  style={styles.sidebarListItem}
+                  onPress={() => {
+                    setSidebarOpen(false);
+                    show();
+                    router.push("/language");
+                  }}
+                >
                   <Feather name="globe" size={22} color="#FFFFFF" />
-                  <Text style={styles.sidebarListItemText}>Language</Text>
+                  <Text style={styles.sidebarListItemText}>{t("sidebar.language")}</Text>
                 </Pressable>
 
                 <Pressable style={styles.sidebarListItem}>
                   <Feather name="lock" size={22} color="#FFFFFF" />
-                  <Text style={styles.sidebarListItemText}>Reset Password</Text>
+                  <Text style={styles.sidebarListItemText}>{t("sidebar.resetPassword")}</Text>
                 </Pressable>
 
               </ScrollView>

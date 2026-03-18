@@ -14,6 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { registerUser, type UserRole } from "../services/authService";
+import { sendWelcomeEmail } from "../services/emailService";
 
 type RegisterRole = "Parent" | "Admin" | "Mentor";
 
@@ -21,6 +23,44 @@ export default function SignUp() {
   const [role, setRole] = useState<RegisterRole>("Parent");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
+  const toUserRole = (r: RegisterRole): UserRole =>
+    r === "Parent" ? "parent" : r === "Admin" ? "admin" : "mentor";
+
+  const onSignUp = async () => {
+    if (!fullName.trim() || !email.trim() || !password) {
+      alert("Please fill all fields");
+      return;
+    }
+    if (password !== confirmPassword) {
+      alert("Passwords do not match");
+      return;
+    }
+
+    try {
+      await registerUser({
+        email: email.trim().toLowerCase(),
+        fullName: fullName.trim(),
+        password,
+        role: toUserRole(role),
+      });
+
+      await sendWelcomeEmail({
+        fullName: fullName.trim(),
+        email: email.trim().toLowerCase(),
+        role: toUserRole(role),
+      });
+
+      alert("Signup successful! Please sign in with the same email and password.");
+      router.push("/(auth)/login");
+    } catch (err: any) {
+      alert(err.message ?? "Unable to sign up. Please try again.");
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -88,6 +128,8 @@ export default function SignUp() {
                     style={styles.input}
                     placeholder="John Smith"
                     placeholderTextColor="#9CA3AF"
+                    value={fullName}
+                    onChangeText={setFullName}
                   />
                   <Ionicons name="checkmark-outline" size={20} color="#9CA3AF" />
                 </View>
@@ -95,7 +137,7 @@ export default function SignUp() {
 
               {/* Email / Phone */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Phone or Gmail</Text>
+                <Text style={styles.label}>Gmail</Text>
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.input}
@@ -103,6 +145,8 @@ export default function SignUp() {
                     placeholderTextColor="#9CA3AF"
                     keyboardType="email-address"
                     autoCapitalize="none"
+                    value={email}
+                    onChangeText={setEmail}
                   />
                   <Ionicons name="checkmark-outline" size={20} color="#9CA3AF" />
                 </View>
@@ -117,6 +161,8 @@ export default function SignUp() {
                     placeholder="••••••••"
                     placeholderTextColor="#9CA3AF"
                     secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
                   />
                   <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                     <Ionicons
@@ -137,6 +183,8 @@ export default function SignUp() {
                     placeholder="••••••••"
                     placeholderTextColor="#9CA3AF"
                     secureTextEntry={!showConfirmPassword}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
                   />
                   <TouchableOpacity
                     onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -156,6 +204,7 @@ export default function SignUp() {
             <TouchableOpacity 
               style={styles.buttonWrapper}
               activeOpacity={0.8}
+              onPress={onSignUp}
             >
               <LinearGradient
                 colors={["#A11A39", "#281A35"]}

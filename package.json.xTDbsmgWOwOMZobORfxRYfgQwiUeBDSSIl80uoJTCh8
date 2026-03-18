@@ -1,23 +1,7 @@
 {
   "name": "ourhometutions",
-  "version": "1.0.0",
-  "private": true,
-  "description": "",
-  "homepage": "https://github.com/mssquare-software/OurHomeTutions#readme",
-  "bugs": {
-    "url": "https://github.com/mssquare-software/OurHomeTutions/issues"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/mssquare-software/OurHomeTutions.git"
-  },
-  "license": "ISC",
-  "author": "",
-  "type": "commonjs",
   "main": "expo-router/entry",
-  "directories": {
-    "doc": "docs"
-  },
+  "version": "1.0.0",
   "scripts": {
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
@@ -41,9 +25,11 @@
     "clsx": "^2.1.1",
     "expo": "~54.0.33",
     "expo-constants": "~18.0.13",
+    "expo-document-picker": "~14.0.8",
     "expo-font": "~14.0.11",
     "expo-haptics": "~15.0.8",
     "expo-image": "~3.0.11",
+    "expo-image-picker": "~17.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-linking": "~8.0.11",
     "expo-location": "~19.0.8",
@@ -84,5 +70,6 @@
     "eslint-config-expo": "~10.0.0",
     "tailwindcss": "^3.3.2",
     "typescript": "~5.9.2"
-  }
+  },
+  "private": true
 }

@@ -15,9 +15,10 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { DUMMY_PARENT } from "../../constants/dummyAuth";
 import { useGlobalLoader } from "../context/LoadingOverlayContext";
 import { useUser } from "../context/UserContext";
+import { loginUser } from "../services/authService";
+import { sendLoginEmail } from "../services/emailService";
 
 export default function Login() {
   const [mode, setMode] = useState<"options" | "email">("options");
@@ -25,23 +26,37 @@ export default function Login() {
   const { setUser } = useUser();
 
   // State for form
-  const [email, setEmail] = useState<string>(DUMMY_PARENT.email);
-  const [password, setPassword] = useState<string>(DUMMY_PARENT.password);
+  const [email, setEmail] = useState<string>("");
+  const [password, setPassword] = useState<string>("");
   const [showPassword, setShowPassword] = useState(false);
 
   const onLogin = async () => {
-    const ok =
-      email.trim().toLowerCase() === DUMMY_PARENT.email &&
-      password === DUMMY_PARENT.password;
-
-    if (!ok) {
-      Alert.alert("Invalid credentials", "Use: parent@demo.com / Parent@123");
-      return;
+    try {
+      const user = await loginUser(email, password);
+      await setUser(
+        user.email.trim().toLowerCase(),
+        user.fullName,
+        user.role
+      );
+      await sendLoginEmail({
+        fullName: user.fullName,
+        email: user.email.trim().toLowerCase(),
+        role: user.role,
+      });
+      show();
+      if (user.role === "admin") {
+        router.replace("/(admin)/dashboard");
+      } else if (user.role === "mentor") {
+        router.replace("/(mentor)/dashboard");
+      } else {
+        router.replace("/(tabs)/parent-dashboard");
+      }
+    } catch (err: any) {
+      Alert.alert(
+        "Invalid credentials",
+        err.message ?? "Please check your email and password."
+      );
     }
-
-    await setUser(email.trim().toLowerCase(), "Rajan Kumar");
-    show();
-    router.replace("/(tabs)/parent-dashboard");
   };
 
   return (
@@ -181,7 +196,7 @@ export default function Login() {
 
                   {/* Hint for development */}
                   <Text style={styles.hint}>
-                    Hint: parent@demo.com / Parent@123
+                    Use the same email and password you used during signup.
                   </Text>
                 </View>
 
