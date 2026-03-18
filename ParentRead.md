@@ -4,6 +4,24 @@ This document explains how the **Parent experience** in OurHomeTutions is planne
 
 ---
 
+### Parent UI reference images (design screenshots)
+
+These screenshots live in `assets/Parentimagereadme/` and are embedded here for quick reference.
+
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.44.03 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.44.20 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.44.36 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.44.49 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.45.43 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.46.02 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.46.51 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.47.15 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.47.17 PM-1.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.47.46 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.47.49 PM-1.jpeg>)
+
+---
+
 ### 1. Parent Journey Overview
 
 - **Onboarding & First Run**
