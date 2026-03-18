@@ -17,6 +17,32 @@ Use these folders as the single source of truth for UI reference images.
 
 If you add new reference screenshots, put them into the correct folder and keep names descriptive (e.g. `admin-dashboard.jpeg`, `parent-sidebar.jpeg`) so developers can find them fast.
 
+#### Parent UI reference gallery
+
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.44.03 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.44.20 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.44.36 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.44.49 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.45.43 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.46.02 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.46.51 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.47.15 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.47.17 PM-1.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.47.46 PM.jpeg>)
+![](<assets/Parentimagereadme/Screenshot 2026-03-18 at 12.47.49 PM-1.jpeg>)
+
+#### Admin UI reference gallery
+
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.51.02 PM.jpeg>)
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.51.16 PM.jpeg>)
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.54.59 PM.jpeg>)
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.55.20 PM.jpeg>)
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.55.39 PM.jpeg>)
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.55.57 PM.jpeg>)
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.56.24 PM.jpeg>)
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.56.24 PM 2.jpeg>)
+![](<assets/Adminimages/Screenshot 2026-03-18 at 12.56.48 PM.jpeg>)
+
 ---
 
 ### Planning workflow (how features are designed + delivered)
@@ -107,4 +133,3 @@ We build features in **vertical slices** so UI and logic stay aligned and testab
 
 ### Notes
 - During UI build phase, we intentionally keep backend logic minimal and stable. Once the UI/UX is finalized, we migrate storage/auth to Supabase without redesigning screens.
-
