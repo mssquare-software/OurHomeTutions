@@ -1,0 +1,15 @@
+{
+  "class": "5",
+  "board": "CBSE",
+  "subjects": {"Mathematics": ["Algebra", "Geometry"]},
+  "mode": "offline",
+  "date": "2026-03-13",
+  "time": "16:00",
+  "participants": "San",
+  "contact": "6305029976",
+  "address": "529, 100 Feet Road, Madhapur, Hyderabad, Telangana, 500081, India",
+  "parentName": "sam",
+  "amount": "1000",
+  "paymentMethod": "UPI",
+  "paymentStatus": "paid"
+}

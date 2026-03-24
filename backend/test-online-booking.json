@@ -1,0 +1,14 @@
+{
+  "class": "10",
+  "board": "ICSE",
+  "subjects": {"Physics": ["Mechanics"]},
+  "mode": "online",
+  "date": "2026-03-14",
+  "time": "15:00",
+  "contact": "9876543210",
+  "address": "",
+  "parentName": "alex",
+  "amount": "1500",
+  "paymentMethod": "UPI",
+  "paymentStatus": "paid"
+}
