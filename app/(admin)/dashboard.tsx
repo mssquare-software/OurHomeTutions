@@ -3,21 +3,21 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
 import {
-  Image,
-  Platform,
-  Pressable,
-  SafeAreaView,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TouchableOpacity,
-  View,
+    Image,
+    Platform,
+    Pressable,
+    SafeAreaView,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
-import { AVATAR_OPTIONS, useUser } from "../context/UserContext";
-import { listQueries, listUsers } from "../data/repo/repo";
-import type { AppUser } from "../data/models";
 import { useLanguage } from "../context/LanguageContext";
+import { AVATAR_OPTIONS, useUser } from "../context/UserContext";
+import type { AppUser } from "../data/models";
+import { listQueries, listUsers } from "../data/repo/repo";
 
 const QUICK_ACTIONS_STORAGE_KEY = "admin_quick_actions";
 const MAX_QUICK_ACTIONS = 5;
@@ -317,6 +317,12 @@ export default function AdminDashboard() {
                 <Feather name="chevron-right" size={16} color="#6F767E" />
               </TouchableOpacity>
 
+              <TouchableOpacity style={styles.listItem} onPress={() => navigate("/(admin)/booking-inbox")}>
+                <Feather name="inbox" size={20} color="#1A1D1F" />
+                <Text style={styles.listText}>Booking inbox</Text>
+                <Feather name="chevron-right" size={16} color="#6F767E" />
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.listItem} onPress={() => navigate("/(admin)/booking-management")}>
                 <Feather name="user-check" size={20} color="#1A1D1F" />
                 <Text style={styles.listText}>{t("sidebar.bookingManagement")}</Text>
@@ -332,6 +338,12 @@ export default function AdminDashboard() {
               <TouchableOpacity style={styles.listItem} onPress={() => navigate("/(admin)/hr-review")}>
                 <Feather name="file-text" size={20} color="#1A1D1F" />
                 <Text style={styles.listText}>{t("sidebar.hrReview")}</Text>
+                <Feather name="chevron-right" size={16} color="#6F767E" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.listItem} onPress={() => navigate("/(admin)/send-mentor-request")}>
+                <Feather name="send" size={20} color="#1A1D1F" />
+                <Text style={styles.listText}>Mentor request</Text>
                 <Feather name="chevron-right" size={16} color="#6F767E" />
               </TouchableOpacity>
 

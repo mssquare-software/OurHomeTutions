@@ -1,16 +1,24 @@
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { router } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import {
   Alert,
+  Animated,
+  Dimensions,
+  Easing,
   Modal,
+  Platform,
   Pressable,
+  type PressableProps,
   SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  type ViewStyle,
   View,
 } from "react-native";
 import { PayPalLoader } from "../../components/animations/PayPalLoader";
@@ -18,9 +26,9 @@ import { CBSE_DATA, type CbseSubject } from "../../constants/cbseSubjects";
 import { BookingRequest } from "../../constants/notificationTypes";
 import type { StateBoard, StateSubject } from "../../constants/stateSubjects";
 import { STATE_DATA } from "../../constants/stateSubjects";
+import { listSubjects } from "../data/repo/repo";
 import { useNotifications } from "../hooks/useNotifications";
 import { useTour } from "../tour/useTour";
-import { listSubjects } from "../data/repo/repo";
 
 type Board = "CBSE" | "STATE";
 type LessonType = "Single" | "Group";
@@ -53,6 +61,152 @@ const PAL = {
   CORAL: "#FF7F50",
 } as const;
 
+/** Local calendar day (avoids UTC shift for YYYY-MM-DD). */
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+function formatDateLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatHourSlot(hour: number): string {
+  return `${String(hour).padStart(2, "0")}:00`;
+}
+
+/** True if this calendar day + hour is not after "now" (past or same instant). */
+function isHourSlotPassed(date: Date, hour: number): boolean {
+  const slot = new Date(date);
+  slot.setHours(hour, 0, 0, 0);
+  return slot.getTime() <= Date.now();
+}
+
+/** 9:00 … 20:00 (9 AM – 8 PM). */
+const SESSION_HOURS = Array.from({ length: 12 }, (_, i) => 9 + i);
+
+const WINDOW_H = Dimensions.get("window").height;
+
+function SparklePressable({
+  children,
+  onPressIn,
+  style,
+  ...rest
+}: PressableProps) {
+  const burst = useRef(new Animated.Value(0)).current;
+
+  const playBurst = useCallback(() => {
+    burst.setValue(0);
+    Animated.timing(burst, {
+      toValue: 1,
+      duration: 520,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [burst]);
+
+  const particles = useMemo(
+    () => [
+      { x: -78, y: -22, size: 9, hollow: true },
+      { x: -58, y: -40, size: 6 },
+      { x: -26, y: -52, size: 8 },
+      { x: 2, y: -58, size: 5 },
+      { x: 30, y: -50, size: 7, hollow: true },
+      { x: 58, y: -34, size: 8 },
+      { x: 78, y: -6, size: 6 },
+      { x: 84, y: 26, size: 9 },
+      { x: 46, y: 50, size: 7 },
+      { x: 14, y: 58, size: 8, hollow: true },
+      { x: -18, y: 56, size: 6 },
+      { x: -50, y: 48, size: 8 },
+      { x: -80, y: 20, size: 7 },
+      { x: -84, y: -4, size: 5 },
+    ],
+    [],
+  );
+
+  return (
+    <Pressable
+      {...rest}
+      onPressIn={(e) => {
+        playBurst();
+        onPressIn?.(e);
+      }}
+      style={(state) => {
+        const base: ViewStyle = { overflow: "visible" };
+        const restStyle = typeof style === "function" ? style(state) : style;
+        return [
+          base,
+          state.pressed && { transform: [{ scale: 0.96 }] },
+          restStyle,
+        ];
+      }}
+    >
+      {(state) => (
+        <View style={{ position: "relative", overflow: "visible" }}>
+          {typeof children === "function" ? children(state) : children}
+
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.sparkLayer,
+              {
+                opacity: burst.interpolate({
+                  inputRange: [0, 0.12, 1],
+                  outputRange: [0, 1, 0],
+                }),
+              },
+            ]}
+          >
+            {particles.map((p, i) => (
+              <Animated.View
+                // eslint-disable-next-line react/no-array-index-key
+                key={`p-${i}`}
+                style={[
+                  p.hollow ? styles.sparkDotHollow : styles.sparkDot,
+                  {
+                    left: "50%",
+                    top: "50%",
+                    width: p.size,
+                    height: p.size,
+                    marginLeft: -p.size / 2,
+                    marginTop: -p.size / 2,
+                    borderRadius: p.size / 2,
+                    transform: [
+                      {
+                        translateX: burst.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, p.x],
+                        }),
+                      },
+                      {
+                        translateY: burst.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [0, p.y],
+                        }),
+                      },
+                      {
+                        scale: burst.interpolate({
+                          inputRange: [0, 0.35, 1],
+                          outputRange: [0.25, 1.1, 0.45],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            ))}
+          </Animated.View>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
 export default function Booking() {
   const [step, setStep] = useState<Step>("selectClass");
 
@@ -72,8 +226,9 @@ export default function Booking() {
   const [classMode, setClassMode] = useState<ClassMode | null>(null);
 
   const [slotOpen, setSlotOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [slotDate, setSlotDate] = useState<Date>(() => startOfDay(new Date()));
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [showAndroidDatePicker, setShowAndroidDatePicker] = useState(false);
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [lessonType, setLessonType] = useState<LessonType>("Single");
@@ -87,6 +242,17 @@ export default function Booking() {
     "Card" | "Paytm" | "BHIM" | "UPI" | "PayPal" | "Scan QR" | null
   >(null);
   const [loading, setLoading] = useState(false);
+  const [cardHolder, setCardHolder] = useState("");
+  const [cardNumber, setCardNumber] = useState("");
+  const [cardExpiry, setCardExpiry] = useState("");
+  const [cardCvv, setCardCvv] = useState("");
+  const [paytmId, setPaytmId] = useState("");
+  const [bhimUpiId, setBhimUpiId] = useState("");
+  const [gpayUpiId, setGpayUpiId] = useState("");
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [qrPayload, setQrPayload] = useState("");
+  const qrScanLock = useRef(false);
+  const [, requestCameraPermission] = useCameraPermissions();
 
   // Hooks
   const { createBooking } = useNotifications();
@@ -144,6 +310,62 @@ export default function Booking() {
     }
   }, [startTour, completedPages]);
 
+  /** Android: open system date picker shortly after the slot modal is visible (avoids stacking glitches). */
+  React.useEffect(() => {
+    if (!slotOpen || Platform.OS !== "android") return;
+    const id = setTimeout(() => setShowAndroidDatePicker(true), 400);
+    return () => {
+      clearTimeout(id);
+      setShowAndroidDatePicker(false);
+    };
+  }, [slotOpen]);
+
+  const openQrScanner = useCallback(async () => {
+    if (Platform.OS === "web") {
+      Alert.alert(
+        "QR on web",
+        "Paste the payment link or UPI text in the field below.",
+      );
+      return;
+    }
+    const res = await requestCameraPermission();
+    if (!res.granted) {
+      Alert.alert(
+        "Camera",
+        "Camera access is required to scan QR codes for payment.",
+      );
+      return;
+    }
+    qrScanLock.current = false;
+    setQrScannerOpen(true);
+  }, [requestCameraPermission]);
+
+  const onQrBarcodeScanned = useCallback(
+    (result: { data: string }) => {
+      if (qrScanLock.current) return;
+      qrScanLock.current = true;
+      setQrPayload(result.data);
+      setQrScannerOpen(false);
+      setTimeout(() => {
+        qrScanLock.current = false;
+      }, 600);
+    },
+    [],
+  );
+
+  const handleSlotDateChange = useCallback((next: Date) => {
+    const nextDay = startOfDay(next);
+    const today = startOfDay(new Date());
+    const clamped = nextDay < today ? today : nextDay;
+    setSlotDate(clamped);
+    setSelectedTime((prev) => {
+      if (!prev) return null;
+      const h = parseInt(prev.split(":")[0], 10);
+      if (Number.isNaN(h)) return null;
+      return isHourSlotPassed(clamped, h) ? null : prev;
+    });
+  }, []);
+
   const setHoursSafe = (subjectName: string, hours: number) => {
     const next = { ...hoursBySubject, [subjectName]: hours };
     const nextTotal = Object.values(next).reduce((a, b) => a + (b || 0), 0);
@@ -190,13 +412,18 @@ export default function Booking() {
       Alert.alert("Mode required", "Please select Online or Offline.");
       return;
     }
+    setSlotDate((prev) => {
+      const today = startOfDay(new Date());
+      const cur = startOfDay(prev);
+      return cur < today ? today : cur;
+    });
     setStep("slots");
     setSlotOpen(true);
   };
 
   const proceedToDetails = () => {
-    if (!selectedDate || !selectedTime) {
-      Alert.alert("Select Slot", "Please select date and time.");
+    if (!selectedTime) {
+      Alert.alert("Select Slot", "Please select a time.");
       return;
     }
     setSlotOpen(false);
@@ -312,7 +539,7 @@ export default function Booking() {
           subject: Object.keys(selectedTopics)[0] || "Mathematics",
           grade: String(selectedClass),
           mode: classMode?.toLowerCase() as "online" | "offline",
-          date: selectedDate || "2026-03-12",
+          date: formatDateLocal(slotDate),
           time: selectedTime || "10:00",
           hours: totalHours,
           address: address,
@@ -334,6 +561,7 @@ export default function Booking() {
   };
 
   const StepBack = () => {
+    if (qrScannerOpen) return setQrScannerOpen(false);
     if (paymentOpen) return setPaymentOpen(false);
     if (detailsOpen) return setDetailsOpen(false);
     if (slotOpen) return setSlotOpen(false);
@@ -386,9 +614,9 @@ export default function Booking() {
       <View style={styles.container}>
         {/* Top bar */}
         <View style={styles.topBar}>
-          <Pressable onPress={StepBack} style={styles.backBtn} hitSlop={10}>
+          <SparklePressable onPress={StepBack} style={styles.backBtn} hitSlop={10}>
             <Text style={styles.backBtnText}>‹ Back</Text>
-          </Pressable>
+          </SparklePressable>
 
           <View style={{ flex: 1 }}>
             <Text style={styles.h1}>Booking</Text>
@@ -409,7 +637,7 @@ export default function Booking() {
               {Array.from({ length: 10 }, (_, i) => i + 1).map((c) => {
                 const active = selectedClass === c;
                 return (
-                  <Pressable
+                  <SparklePressable
                     key={c}
                     style={[styles.chip, active && styles.chipActive]}
                     onPress={() => {
@@ -426,7 +654,7 @@ export default function Booking() {
                     >
                       Class {c}
                     </Text>
-                  </Pressable>
+                  </SparklePressable>
                 );
               })}
             </View>
@@ -437,7 +665,7 @@ export default function Booking() {
             <View style={styles.card}>
               <Text style={styles.cardTitle}>2) Select Board</Text>
               <View style={styles.row}>
-                <Pressable
+                <SparklePressable
                   style={[
                     styles.bigOption,
                     board === "CBSE" && styles.bigOptionActive,
@@ -458,9 +686,9 @@ export default function Booking() {
                   >
                     CBSE
                   </Text>
-                </Pressable>
+                </SparklePressable>
 
-                <Pressable
+                <SparklePressable
                   style={[
                     styles.bigOption,
                     board === "STATE" && styles.bigOptionActive,
@@ -481,7 +709,7 @@ export default function Booking() {
                   >
                     STATE
                   </Text>
-                </Pressable>
+                </SparklePressable>
               </View>
             </View>
           )}
@@ -500,7 +728,7 @@ export default function Booking() {
                     {(["AP", "Telangana"] as StateBoard[]).map((sb) => {
                       const active = stateBoard === sb;
                       return (
-                        <Pressable
+                        <SparklePressable
                           key={sb}
                           style={[
                             styles.bigOption,
@@ -520,7 +748,7 @@ export default function Booking() {
                           >
                             {sb}
                           </Text>
-                        </Pressable>
+                        </SparklePressable>
                       );
                     })}
                   </View>
@@ -562,7 +790,7 @@ export default function Booking() {
                           {s.topics.map((t: string) => {
                             const active = chosenTopics.includes(t);
                             return (
-                              <Pressable
+                              <SparklePressable
                                 key={t}
                                 style={[
                                   styles.chip,
@@ -589,7 +817,7 @@ export default function Booking() {
                                 >
                                   {t}
                                 </Text>
-                              </Pressable>
+                              </SparklePressable>
                             );
                           })}
                         </View>
@@ -602,9 +830,9 @@ export default function Booking() {
                     <Text style={styles.totalVal}>{totalHours}/2</Text>
                   </View>
 
-                  <Pressable style={styles.bookNowBtn} onPress={bookNow}>
+                  <SparklePressable style={styles.bookNowBtn} onPress={bookNow}>
                     <Text style={styles.bookNowBtnText}>Continue</Text>
-                  </Pressable>
+                  </SparklePressable>
                 </>
               )}
             </View>
@@ -616,7 +844,7 @@ export default function Booking() {
               <Text style={styles.cardTitle}>4) Mode of Classes</Text>
 
               <View style={styles.row}>
-                <Pressable
+                <SparklePressable
                   style={[
                     styles.bigOption,
                     classMode === "Online" && styles.bigOptionActive,
@@ -631,9 +859,9 @@ export default function Booking() {
                   >
                     Online
                   </Text>
-                </Pressable>
+                </SparklePressable>
 
-                <Pressable
+                <SparklePressable
                   style={[
                     styles.bigOption,
                     classMode === "Offline" && styles.bigOptionActive,
@@ -648,12 +876,12 @@ export default function Booking() {
                   >
                     Offline
                   </Text>
-                </Pressable>
+                </SparklePressable>
               </View>
 
-              <Pressable style={styles.bookNowBtn} onPress={proceedToSlots}>
+              <SparklePressable style={styles.bookNowBtn} onPress={proceedToSlots}>
                 <Text style={styles.bookNowBtnText}>Choose Slot</Text>
-              </Pressable>
+              </SparklePressable>
             </View>
           )}
         </ScrollView>
@@ -666,76 +894,117 @@ export default function Booking() {
           onRequestClose={() => setSlotOpen(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Pressable
+            <View style={[styles.modalCard, styles.slotModalCard]}>
+              <SparklePressable
                 onPress={StepBack}
                 style={styles.modalBack}
                 hitSlop={8}
               >
                 <Text style={styles.modalBackText}>‹ Back</Text>
-              </Pressable>
+              </SparklePressable>
 
-              <Text style={styles.modalTitle}>Available Slots</Text>
-              <Text style={styles.modalSub}>Mode: {classMode ?? "-"}</Text>
-
-              <View style={{ height: 12 }} />
-
-              <Text style={styles.mutedText}>Select Date</Text>
-              <View style={styles.chipsWrap}>
-                {["2026-03-12", "2026-03-13", "2026-03-14"].map((d) => {
-                  const active = selectedDate === d;
-                  return (
-                    <Pressable
-                      key={d}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setSelectedDate(d)}
-                    >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          active && styles.chipTextActive,
-                        ]}
-                      >
-                        {d}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              <Text style={styles.slotModalTitle}>Available Slots</Text>
+              <Text style={styles.slotModalSub}>
+                Mode: {classMode ?? "-"}
+              </Text>
 
               <View style={{ height: 12 }} />
 
-              <Text style={styles.mutedText}>Select Time</Text>
-              <View style={styles.chipsWrap}>
-                {["10:00", "12:00", "16:00", "18:00"].map((tm) => {
-                  const active = selectedTime === tm;
-                  return (
-                    <Pressable
-                      key={tm}
-                      style={[styles.chip, active && styles.chipActive]}
-                      onPress={() => setSelectedTime(tm)}
+              <ScrollView
+                style={styles.slotModalScroll}
+                contentContainerStyle={styles.slotModalScrollContent}
+                showsVerticalScrollIndicator
+                keyboardShouldPersistTaps="handled"
+                nestedScrollEnabled
+              >
+                <Text style={styles.slotModalLabel}>Select date</Text>
+                {Platform.OS === "ios" ? (
+                  <View style={styles.slotDatePickerWrap}>
+                    <DateTimePicker
+                      value={slotDate}
+                      mode="date"
+                      display="inline"
+                      themeVariant="dark"
+                      textColor={PAL.PURE_WHITE}
+                      minimumDate={startOfDay(new Date())}
+                      onChange={(_, date) => {
+                        if (date) handleSlotDateChange(date);
+                      }}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    <SparklePressable
+                      style={styles.slotDateButton}
+                      onPress={() => setShowAndroidDatePicker(true)}
                     >
-                      <Text
-                        style={[
-                          styles.chipText,
-                          active && styles.chipTextActive,
-                        ]}
-                      >
-                        {tm}
+                      <Text style={styles.slotModalStrong}>
+                        {formatDateLocal(slotDate)}
                       </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+                      <Text style={styles.slotModalHint}>
+                        Tap to open calendar again
+                      </Text>
+                    </SparklePressable>
+                    {showAndroidDatePicker && (
+                      <DateTimePicker
+                        value={slotDate}
+                        mode="date"
+                        display="default"
+                        minimumDate={startOfDay(new Date())}
+                        onChange={(event, date) => {
+                          setShowAndroidDatePicker(false);
+                          if (event.type === "dismissed") return;
+                          if (date) handleSlotDateChange(date);
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+
+                <View style={{ height: 12 }} />
+
+                <Text style={styles.slotModalLabel}>
+                  Select time (9:00 – 8:00 PM)
+                </Text>
+                <View style={styles.chipsWrap}>
+                  {SESSION_HOURS.map((h) => {
+                    const tm = formatHourSlot(h);
+                    const active = selectedTime === tm;
+                    const passed = isHourSlotPassed(slotDate, h);
+                    return (
+                      <SparklePressable
+                        key={tm}
+                        disabled={passed}
+                        style={[
+                          styles.slotChip,
+                          active && styles.slotChipActive,
+                          passed && styles.slotChipDisabled,
+                        ]}
+                        onPress={() => setSelectedTime(tm)}
+                      >
+                        <Text
+                          style={[
+                            styles.slotChipText,
+                            active && styles.slotChipTextActive,
+                            passed && styles.slotChipTextDisabled,
+                          ]}
+                        >
+                          {tm}
+                        </Text>
+                      </SparklePressable>
+                    );
+                  })}
+                </View>
+              </ScrollView>
 
               <View style={styles.modalBtns}>
-                <Pressable style={styles.modalSecondary} onPress={StepBack}>
+                <SparklePressable style={styles.modalSecondary} onPress={StepBack}>
                   <Text style={styles.modalSecondaryText}>Back</Text>
-                </Pressable>
+                </SparklePressable>
 
-                <Pressable style={styles.bookNowBtnModal} onPress={proceedToDetails}>
+                <SparklePressable style={styles.bookNowBtnModal} onPress={proceedToDetails}>
                   <Text style={styles.bookNowBtnText}>Continue</Text>
-                </Pressable>
+                </SparklePressable>
               </View>
             </View>
           </View>
@@ -750,24 +1019,25 @@ export default function Booking() {
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Pressable
+              <SparklePressable
                 onPress={StepBack}
                 style={styles.modalBack}
                 hitSlop={8}
               >
                 <Text style={styles.modalBackText}>‹ Back</Text>
-              </Pressable>
+              </SparklePressable>
 
               <Text style={styles.modalTitle}>Booking Details</Text>
               <Text style={styles.modalSub}>
-                Mode: {classMode ?? "-"} • {selectedDate} {selectedTime}
+                Mode: {classMode ?? "-"} • {formatDateLocal(slotDate)}{" "}
+                {selectedTime}
               </Text>
 
               <View style={{ height: 12 }} />
 
               <Text style={styles.mutedText}>Session Type</Text>
               <View style={[styles.row, { marginTop: 8 }]}>
-                <Pressable
+                <SparklePressable
                   style={[
                     styles.chip,
                     lessonType === "Single" && styles.chipActive,
@@ -782,9 +1052,9 @@ export default function Booking() {
                   >
                     Single
                   </Text>
-                </Pressable>
+                </SparklePressable>
 
-                <Pressable
+                <SparklePressable
                   style={[
                     styles.chip,
                     lessonType === "Group" && styles.chipActive,
@@ -799,12 +1069,12 @@ export default function Booking() {
                   >
                     Group
                   </Text>
-                </Pressable>
+                </SparklePressable>
 
                 {lessonType === "Group" && (
-                  <Pressable style={styles.addBtn} onPress={addPerson}>
+                  <SparklePressable style={styles.addBtn} onPress={addPerson}>
                     <Text style={styles.addBtnText}>＋</Text>
-                  </Pressable>
+                  </SparklePressable>
                 )}
               </View>
 
@@ -828,12 +1098,12 @@ export default function Booking() {
                     />
 
                     {lessonType === "Group" && participants.length > 1 && (
-                      <Pressable
+                      <SparklePressable
                         onPress={() => removePerson(idx)}
                         style={styles.removeBtn}
                       >
                         <Text style={styles.removeBtnText}>×</Text>
-                      </Pressable>
+                      </SparklePressable>
                     )}
                   </View>
                 ))}
@@ -859,7 +1129,7 @@ export default function Booking() {
                   {classMode === "Online" ? " (optional for Online)" : ""}
                 </Text>
 
-                <Pressable
+                <SparklePressable
                   onPress={fetchCurrentLocation}
                   style={styles.fetchBtn}
                   disabled={locLoading}
@@ -867,7 +1137,7 @@ export default function Booking() {
                   <Text style={styles.fetchBtnText}>
                     {locLoading ? "Fetching..." : "Fetch Location"}
                   </Text>
-                </Pressable>
+                </SparklePressable>
               </View>
 
               <TextInput
@@ -880,15 +1150,15 @@ export default function Booking() {
               />
 
               <View style={styles.modalBtns}>
-                <Pressable style={styles.modalSecondary} onPress={StepBack}>
+                <SparklePressable style={styles.modalSecondary} onPress={StepBack}>
                   <Text style={styles.modalSecondaryText}>Back</Text>
-                </Pressable>
-                <Pressable
+                </SparklePressable>
+                <SparklePressable
                   style={styles.bookNowBtnModal}
                   onPress={validateDetailsAndOpenPayment}
                 >
                   <Text style={styles.bookNowBtnText}>Continue</Text>
-                </Pressable>
+                </SparklePressable>
               </View>
             </View>
           </View>
@@ -899,62 +1169,263 @@ export default function Booking() {
           visible={paymentOpen}
           transparent
           animationType="fade"
-          onRequestClose={() => setPaymentOpen(false)}
+          onRequestClose={() => {
+            if (qrScannerOpen) setQrScannerOpen(false);
+            else setPaymentOpen(false);
+          }}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Pressable
-                onPress={StepBack}
-                style={styles.modalBack}
-                hitSlop={8}
-              >
-                <Text style={styles.modalBackText}>‹ Back</Text>
-              </Pressable>
-
-              <Text style={styles.modalTitle}>Payment</Text>
-              <Text style={styles.modalSub}>
-                Mode: {classMode ?? "-"} • {selectedDate} {selectedTime}
-              </Text>
-
-              <View style={{ height: 12 }} />
-
-              {loading ? (
-                <View style={styles.loadingBox}>
-                  <PayPalLoader />
-                  <Text style={styles.loadingText}>Processing payment…</Text>
+            <ScrollView
+              contentContainerStyle={styles.paymentModalScrollOuter}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.paymentModalInner}>
+                <View style={styles.paymentHeader}>
+                  <Text style={styles.paymentTitle}>Payment Options</Text>
+                  <SparklePressable
+                    onPress={StepBack}
+                    style={styles.backCircle}
+                    hitSlop={8}
+                  >
+                    <Text style={styles.backCircleGlyph}>‹</Text>
+                  </SparklePressable>
                 </View>
-              ) : (
-                <>
-                  <Text style={styles.mutedText}>Select Payment Method</Text>
-                  <View style={[styles.chipsWrap, { marginTop: 8 }]}>
-                    {(
-                      ["Card", "Paytm", "BHIM", "UPI", "PayPal", "Scan QR"] as const
-                    ).map((m) => {
-                      const active = paymentMethod === m;
-                      return (
-                        <Pressable
-                          key={m}
-                          style={[styles.chip, active && styles.chipActive]}
-                          onPress={() => setPaymentMethod(m)}
-                        >
-                          <Text
-                            style={[
-                              styles.chipText,
-                              active && styles.chipTextActive,
-                            ]}
-                          >
-                            {m}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
 
-                  <Pressable style={styles.bookNowBtn} onPress={pay}>
-                    <Text style={styles.bookNowBtnText}>Book Now</Text>
-                  </Pressable>
-                </>
-              )}
+                <Text style={styles.paymentSessionLine}>
+                  {classMode ?? "-"} · {formatDateLocal(slotDate)} ·{" "}
+                  {selectedTime ?? ""}
+                </Text>
+
+                {loading ? (
+                  <View style={styles.loadingBoxLight}>
+                    <PayPalLoader />
+                    <Text style={styles.loadingTextDark}>
+                      Processing payment…
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <View style={styles.iconRow}>
+                      {(
+                        [
+                          { key: "Card" as const, label: "Card" },
+                          { key: "Paytm" as const, label: "Paytm" },
+                          { key: "BHIM" as const, label: "BHIM" },
+                          { key: "UPI" as const, label: "GPay" },
+                          { key: "PayPal" as const, label: "Pay" },
+                          { key: "Scan QR" as const, label: "QR" },
+                        ] as const
+                      ).map(({ key, label }) => {
+                        const active = paymentMethod === key;
+                        return (
+                          <SparklePressable
+                            key={key}
+                            style={[
+                              styles.methodIcon,
+                              active && styles.methodIconActive,
+                            ]}
+                            onPress={() => setPaymentMethod(key)}
+                          >
+                            <Text
+                              style={[
+                                styles.methodIconText,
+                                active && styles.methodIconTextActive,
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {label}
+                            </Text>
+                          </SparklePressable>
+                        );
+                      })}
+                    </View>
+
+                    {paymentMethod === "Card" && (
+                      <>
+                        <LinearGradient
+                          colors={["#7C3AED", "#4C1D95"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 1 }}
+                          style={styles.creditCard}
+                        >
+                          <Text style={styles.cardBrand}>CARD</Text>
+                          <Text style={styles.cardNumber}>
+                            {(() => {
+                              const d = cardNumber.replace(/\s/g, "");
+                              if (d.length === 0) return "···· ···· ···· ····";
+                              if (d.length <= 4) return `${d} ···· ···· ····`;
+                              return `${d.slice(0, 4)} ···· ···· ${d.slice(-4)}`;
+                            })()}
+                          </Text>
+                          <View style={styles.cardBottom}>
+                            <Text style={styles.cardHolder} numberOfLines={1}>
+                              {cardHolder.trim() || "CARD HOLDER"}
+                            </Text>
+                            <Text style={styles.cardExpiry}>
+                              {cardExpiry.trim() || "MM/YY"}
+                            </Text>
+                          </View>
+                        </LinearGradient>
+
+                      <View style={styles.inputGroup}>
+                        <View>
+                          <Text style={styles.inputLabel}>Name on card</Text>
+                          <TextInput
+                            value={cardHolder}
+                            onChangeText={setCardHolder}
+                            placeholder="John Doe"
+                            placeholderTextColor="#9CA3AF"
+                            style={styles.lightInput}
+                          />
+                        </View>
+                        <View>
+                          <Text style={styles.inputLabel}>Card number</Text>
+                          <TextInput
+                            value={cardNumber}
+                            onChangeText={(t) =>
+                              setCardNumber(t.replace(/[^0-9 ]/g, ""))
+                            }
+                            placeholder="4242 4242 4242 4242"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="number-pad"
+                            style={styles.lightInput}
+                          />
+                        </View>
+                        <View style={styles.cardRowInputs}>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Expiry</Text>
+                            <TextInput
+                              value={cardExpiry}
+                              onChangeText={setCardExpiry}
+                              placeholder="MM/YY"
+                              placeholderTextColor="#9CA3AF"
+                              style={styles.lightInput}
+                            />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>CVV</Text>
+                            <TextInput
+                              value={cardCvv}
+                              onChangeText={(t) =>
+                                setCardCvv(t.replace(/[^0-9]/g, "").slice(0, 4))
+                              }
+                              placeholder="···"
+                              placeholderTextColor="#9CA3AF"
+                              keyboardType="number-pad"
+                              secureTextEntry
+                              style={styles.lightInput}
+                            />
+                          </View>
+                        </View>
+                      </View>
+                      </>
+                    )}
+
+                    {paymentMethod === "Paytm" && (
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          Paytm number / Paytm ID
+                        </Text>
+                        <TextInput
+                          value={paytmId}
+                          onChangeText={setPaytmId}
+                          placeholder="9876543210 or yourname@paytm"
+                          placeholderTextColor="#9CA3AF"
+                          style={styles.lightInput}
+                          keyboardType="default"
+                          autoCapitalize="none"
+                        />
+                      </View>
+                    )}
+
+                    {paymentMethod === "BHIM" && (
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>UPI ID (BHIM)</Text>
+                        <TextInput
+                          value={bhimUpiId}
+                          onChangeText={setBhimUpiId}
+                          placeholder="yourname@upi"
+                          placeholderTextColor="#9CA3AF"
+                          style={styles.lightInput}
+                          autoCapitalize="none"
+                        />
+                      </View>
+                    )}
+
+                    {paymentMethod === "UPI" && (
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          UPI ID (GPay / PhonePe / BHIM)
+                        </Text>
+                        <TextInput
+                          value={gpayUpiId}
+                          onChangeText={setGpayUpiId}
+                          placeholder="name@oksbi or name@ybl"
+                          placeholderTextColor="#9CA3AF"
+                          style={styles.lightInput}
+                          autoCapitalize="none"
+                        />
+                      </View>
+                    )}
+
+                    {paymentMethod === "Scan QR" && (
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>
+                          Scan a QR or paste payment link / UPI text
+                        </Text>
+                        <TextInput
+                          value={qrPayload}
+                          onChangeText={setQrPayload}
+                          placeholder="Paste here if not using the camera"
+                          placeholderTextColor="#9CA3AF"
+                          style={[styles.lightInput, styles.qrTextArea]}
+                          multiline
+                        />
+                        {Platform.OS !== "web" && (
+                          <SparklePressable
+                            style={styles.qrOpenBtn}
+                            onPress={openQrScanner}
+                          >
+                            <Text style={styles.qrOpenBtnText}>
+                              Open QR scanner
+                            </Text>
+                          </SparklePressable>
+                        )}
+                      </View>
+                    )}
+
+                    <SparklePressable style={styles.saveBtn} onPress={pay}>
+                      <Text style={styles.saveBtnText}>Complete payment</Text>
+                    </SparklePressable>
+                  </>
+                )}
+              </View>
+            </ScrollView>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={qrScannerOpen}
+          animationType="slide"
+          onRequestClose={() => setQrScannerOpen(false)}
+        >
+          <View style={styles.qrScannerRoot}>
+            {Platform.OS !== "web" ? (
+              <CameraView
+                style={StyleSheet.absoluteFillObject}
+                facing="back"
+                barcodeScannerSettings={{ barcodeTypes: ["qr"] }}
+                onBarcodeScanned={onQrBarcodeScanned}
+              />
+            ) : null}
+            <View style={styles.qrScannerTopBar}>
+              <SparklePressable
+                style={styles.qrScannerCloseBtn}
+                onPress={() => setQrScannerOpen(false)}
+              >
+                <Text style={styles.qrScannerCloseText}>× Close</Text>
+              </SparklePressable>
             </View>
           </View>
         </Modal>
@@ -1170,6 +1641,16 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 10,
   },
+  slotModalCard: {
+    maxHeight: WINDOW_H * 0.88,
+    width: "100%",
+  },
+  slotModalScroll: {
+    maxHeight: WINDOW_H * 0.58,
+  },
+  slotModalScrollContent: {
+    paddingBottom: 16,
+  },
   modalBack: {
     alignSelf: "flex-start",
     paddingHorizontal: 8,
@@ -1187,6 +1668,76 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: "700",
   },
+
+  slotModalTitle: { color: PAL.PURE_WHITE, fontSize: 20, fontWeight: "900" },
+  slotModalSub: {
+    marginTop: 6,
+    color: PAL.PURE_WHITE,
+    lineHeight: 18,
+    fontWeight: "700",
+  },
+  slotModalLabel: {
+    color: PAL.PURE_WHITE,
+    fontWeight: "800",
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  slotModalStrong: {
+    color: PAL.PURE_WHITE,
+    fontWeight: "900",
+    fontSize: 17,
+  },
+  slotModalHint: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  slotDateButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.25)",
+    borderWidth: 1,
+    borderColor: PAL.GLASS_BORDER,
+    marginBottom: 4,
+  },
+  slotDatePickerWrap: {
+    minHeight: 360,
+    backgroundColor: "rgba(0,0,0,0.2)",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: PAL.GLASS_BORDER,
+    overflow: "hidden",
+    marginBottom: 4,
+  },
+  slotChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: PAL.GLASS_BG,
+    borderWidth: 1,
+    borderColor: PAL.GLASS_BORDER,
+  },
+  slotChipActive: {
+    backgroundColor: PAL.PURPLE_BASE,
+    borderColor: PAL.PURPLE_GLOW,
+    shadowColor: PAL.PURPLE_BASE,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  slotChipDisabled: {
+    opacity: 0.4,
+  },
+  slotChipText: {
+    color: PAL.PURE_WHITE,
+    fontWeight: "700",
+    fontSize: 13,
+  },
+  slotChipTextActive: { color: PAL.PURE_WHITE, fontWeight: "900" },
+  slotChipTextDisabled: { color: "rgba(255,255,255,0.45)" },
   
   modalBtns: { flexDirection: "row", gap: 12, marginTop: 24 },
   modalSecondary: {
@@ -1255,4 +1806,230 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   loadingText: { color: PAL.PURE_WHITE, fontWeight: "800", marginTop: 8 },
+
+  paymentModalScrollOuter: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+  },
+  paymentModalInner: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 20,
+    width: "100%",
+    maxWidth: 440,
+    alignSelf: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  paymentHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  paymentTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    flex: 1,
+  },
+  backCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFF",
+    elevation: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#EEE",
+  },
+  backCircleGlyph: {
+    fontSize: 22,
+    color: "#1A1A1A",
+    fontWeight: "800",
+    marginTop: -2,
+  },
+  paymentSessionLine: {
+    fontSize: 13,
+    color: "#666",
+    marginBottom: 20,
+    fontWeight: "600",
+  },
+  loadingBoxLight: {
+    minHeight: 120,
+    borderRadius: 16,
+    backgroundColor: "#F3F4F6",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  loadingTextDark: {
+    color: "#333",
+    fontWeight: "700",
+    marginTop: 12,
+    fontSize: 15,
+  },
+  iconRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    gap: 8,
+  },
+  methodIcon: {
+    width: "31%",
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: "#FFF",
+    borderWidth: 1,
+    borderColor: "#EEE",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  methodIconActive: {
+    borderColor: "#7C3AED",
+    backgroundColor: "#F5F3FF",
+  },
+  methodIconText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#333",
+  },
+  methodIconTextActive: {
+    color: "#7C3AED",
+  },
+  creditCard: {
+    height: 200,
+    borderRadius: 20,
+    padding: 24,
+    justifyContent: "space-between",
+    marginBottom: 24,
+  },
+  cardBrand: { color: "#FFF", fontSize: 20, fontWeight: "bold" },
+  cardNumber: { color: "#FFF", fontSize: 20, letterSpacing: 2 },
+  cardBottom: { flexDirection: "row", justifyContent: "space-between" },
+  cardHolder: { color: "#FFF", opacity: 0.9, flex: 1, marginRight: 12 },
+  cardExpiry: { color: "#FFF" },
+  inputGroup: { gap: 15 },
+  inputLabel: { fontSize: 14, color: "#333", fontWeight: "600", marginBottom: 6 },
+  lightInput: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 12,
+    padding: 15,
+    fontSize: 16,
+    color: "#000",
+  },
+  cardRowInputs: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  saveBtn: {
+    backgroundColor: "#7C3AED",
+    padding: 18,
+    borderRadius: 30,
+    alignItems: "center",
+    marginTop: 24,
+  },
+  saveBtnText: { color: "#FFF", fontWeight: "bold", fontSize: 16 },
+
+  successIconContainer: {
+    marginBottom: 30,
+    marginTop: 40,
+    alignItems: "center",
+  },
+  purpleBadge: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#7C3AED",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1A1A1A",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  successSub: {
+    textAlign: "center",
+    color: "#666",
+    paddingHorizontal: 20,
+    lineHeight: 22,
+    marginBottom: 40,
+  },
+  homeBtn: {
+    backgroundColor: "#7C3AED",
+    width: "100%",
+    padding: 18,
+    borderRadius: 30,
+    alignItems: "center",
+  },
+  homeBtnText: { color: "#FFF", fontWeight: "bold" },
+
+  qrOpenBtn: {
+    backgroundColor: "#7C3AED",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  qrOpenBtnText: { color: "#FFF", fontWeight: "800", fontSize: 15 },
+  qrTextArea: { minHeight: 88, textAlignVertical: "top" },
+  qrScannerRoot: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  qrScannerTopBar: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    paddingTop: 56,
+    paddingHorizontal: 16,
+    zIndex: 10,
+  },
+  qrScannerCloseBtn: {
+    alignSelf: "flex-start",
+    backgroundColor: "rgba(0,0,0,0.55)",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+  },
+  qrScannerCloseText: { color: "#FFF", fontWeight: "800", fontSize: 16 },
+
+  sparkLayer: {
+    position: "absolute",
+    left: -90,
+    right: -90,
+    top: -72,
+    bottom: -72,
+    zIndex: 20,
+  },
+  sparkDot: {
+    position: "absolute",
+    backgroundColor: "#7C3AED",
+    shadowColor: "#C084FC",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 4,
+  },
+  sparkDotHollow: {
+    position: "absolute",
+    backgroundColor: "transparent",
+    borderWidth: 1.3,
+    borderColor: "rgba(124,58,237,0.65)",
+    shadowColor: "#C084FC",
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.7,
+    shadowRadius: 3,
+  },
 });

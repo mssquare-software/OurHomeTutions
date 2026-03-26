@@ -123,6 +123,26 @@ export default function ParentDashboard() {
             </View>
           </View>
 
+          {/* AI ASSISTANCE MODE */}
+          <Pressable
+            style={styles.assistanceModeButton}
+            onPress={() => {
+              show();
+              router.push("/(tabs)/assistance-mode" as any);
+            }}
+          >
+            <View style={styles.assistanceModeLeft}>
+              <View style={styles.assistanceModeIconCircle}>
+                <MaterialCommunityIcons name="robot-outline" size={22} color="#1F3E3A" />
+              </View>
+              <View style={styles.assistanceModeTextWrap}>
+                <Text style={styles.assistanceModeTitle}>AI Assistance Mode</Text>
+                <Text style={styles.assistanceModeSubtitle}>Ask doubts, get instant help</Text>
+              </View>
+            </View>
+            <Feather name="chevron-right" size={22} color="#1F3E3A" />
+          </Pressable>
+
           {/* AVATAR SECTION - Parent can change avatar */}
           <View style={styles.avatarSection}>
             <Text style={styles.sectionTitle}>AVATAR</Text>
@@ -262,7 +282,14 @@ export default function ParentDashboard() {
                 {/* Messages Section */}
                 <Text style={styles.sidebarSectionTitle}>{t("sidebar.messages")}</Text>
                 
-                <Pressable style={styles.sidebarListItem}>
+                <Pressable
+                  style={styles.sidebarListItem}
+                  onPress={() => {
+                    setSidebarOpen(false);
+                    show();
+                    router.push("/parent-inbox");
+                  }}
+                >
                   <Feather name="inbox" size={22} color="#FFFFFF" />
                   <Text style={styles.sidebarListItemText}>{t("sidebar.inbox")}</Text>
                 </Pressable>
@@ -472,6 +499,54 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 4,
+  },
+
+  // --- AI ASSISTANCE MODE ---
+  assistanceModeButton: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    marginBottom: 30,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderWidth: 1,
+    borderColor: "rgba(120, 196, 164, 0.28)",
+    shadowColor: "#78C4A4",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  assistanceModeLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    paddingRight: 10,
+  },
+  assistanceModeIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(120, 196, 164, 0.18)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  assistanceModeTextWrap: {
+    flex: 1,
+  },
+  assistanceModeTitle: {
+    fontSize: 15,
+    fontWeight: "900",
+    color: "#1F3E3A",
+  },
+  assistanceModeSubtitle: {
+    marginTop: 4,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
   },
 
   // --- AVATAR SECTION ---

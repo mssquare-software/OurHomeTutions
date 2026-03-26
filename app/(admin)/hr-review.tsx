@@ -85,6 +85,11 @@ export default function HRReview() {
                   <Text style={styles.appSub}>
                     {a.mentorEmail} • {a.subject} • {a.experienceYears ?? 0} yrs
                   </Text>
+                  {(a.contactPhone || a.contactEmail || a.jobId) ? (
+                    <Text style={styles.appExtra}>
+                      {[a.contactPhone && `📞 ${a.contactPhone}`, a.contactEmail && `✉️ ${a.contactEmail}`, a.jobId && `Job: ${a.jobId.slice(0, 8)}…`].filter(Boolean).join(" • ")}
+                    </Text>
+                  ) : null}
                 </View>
                 <View style={styles.pill}>
                   <Text style={styles.pillText}>{a.status.toUpperCase()}</Text>
@@ -165,6 +170,7 @@ const styles = StyleSheet.create({
   statusDot: { width: 10, height: 10, borderRadius: 10 },
   appName: { fontWeight: "900", color: "#1A1D1F" },
   appSub: { color: "#6F767E", marginTop: 2, fontSize: 12 },
+  appExtra: { color: "#3F8CFF", marginTop: 4, fontSize: 11, fontWeight: "600" },
   pill: { backgroundColor: "#FFFFFF", paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 },
   pillText: { fontWeight: "900", color: "#1A1D1F", fontSize: 12 },
 

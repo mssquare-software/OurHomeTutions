@@ -17,6 +17,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useGlobalLoader } from "../context/LoadingOverlayContext";
 import { useUser } from "../context/UserContext";
+import { upsertRepoUser } from "../data/repo/repo";
 import { loginUser } from "../services/authService";
 import { sendLoginEmail } from "../services/emailService";
 
@@ -33,6 +34,16 @@ export default function Login() {
   const onLogin = async () => {
     try {
       const user = await loginUser(email, password);
+      try {
+        await upsertRepoUser({
+          email: user.email,
+          fullName: user.fullName,
+          role: user.role,
+          isActive: true,
+        });
+      } catch (e) {
+        console.warn("upsertRepoUser on login:", e);
+      }
       await setUser(
         user.email.trim().toLowerCase(),
         user.fullName,

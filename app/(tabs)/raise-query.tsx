@@ -71,7 +71,7 @@ export default function RaiseQuery() {
     // Clear so user can immediately send another
     setMessage("");
     setAttachments([]);
-    router.back();
+    router.replace("/(tabs)/parent-dashboard");
   };
 
   return (

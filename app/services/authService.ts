@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { upsertRepoUser } from "../data/repo/repo";
 
 export type UserRole = "parent" | "admin" | "mentor";
 
@@ -9,6 +10,7 @@ export interface StoredUser {
   password: string; // dev-only (local demo). Replace with real auth backend later.
   role: UserRole;
   createdAt: number;
+  phone?: string;
 }
 
 const USERS_KEY = "oht_users_v1";
@@ -61,6 +63,19 @@ export async function registerUser(input: {
   };
 
   await saveUsers([user, ...users]);
+
+  // Keep repo users in sync so Admin → Mentors / booking assign lists see new accounts
+  try {
+    await upsertRepoUser({
+      email: user.email,
+      fullName: user.fullName,
+      role: input.role,
+      isActive: true,
+    });
+  } catch (e) {
+    console.warn("upsertRepoUser failed (mentor may not show in admin until fixed):", e);
+  }
+
   return user;
 }
 
@@ -77,5 +92,42 @@ export async function loginUser(emailInput: string, password: string) {
   }
 
   return user;
+}
+
+/** Local demo: update profile fields for the logged-in account */
+export async function updateStoredUser(
+  currentEmail: string,
+  patch: { email?: string; fullName?: string; phone?: string }
+): Promise<StoredUser> {
+  const users = await loadUsers();
+  const n = normalizeEmail(currentEmail);
+  let updated: StoredUser | null = null;
+  const next = users.map((u) => {
+    if (normalizeEmail(u.email) !== n) return u;
+    const neu: StoredUser = {
+      ...u,
+      ...patch,
+      email: patch.email ? normalizeEmail(patch.email) : u.email,
+      fullName: patch.fullName !== undefined ? patch.fullName.trim() : u.fullName,
+      phone: patch.phone !== undefined ? patch.phone : u.phone,
+    };
+    updated = neu;
+    return neu;
+  });
+  if (!updated) throw new Error("User not found");
+  await saveUsers(next);
+
+  try {
+    await upsertRepoUser({
+      email: updated.email,
+      fullName: updated.fullName,
+      role: updated.role,
+      isActive: true,
+    });
+  } catch (e) {
+    console.warn("upsertRepoUser after profile update failed:", e);
+  }
+
+  return updated;
 }
 

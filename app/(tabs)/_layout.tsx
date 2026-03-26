@@ -32,6 +32,20 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="parent-inbox"
+        options={{
+          title: "Inbox",
+        }}
+      />
+
+      <Tabs.Screen
+        name="live-tracking"
+        options={{
+          title: "Live",
+        }}
+      />
+
+      <Tabs.Screen
         name="bookmarks"
         options={{
           title: "Bookmarks",

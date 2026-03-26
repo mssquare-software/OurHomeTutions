@@ -1,6 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import React, { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   Image,
   SafeAreaView,
@@ -35,36 +36,40 @@ export default function AdminMentors() {
   const [q, setQ] = useState("");
   const [mentors, setMentors] = useState<MentorRow[]>([]);
 
-  useEffect(() => {
-    (async () => {
-      const users = await listUsers();
-      const ms = users.filter((u) => u.role === "mentor");
+  const loadMentors = useCallback(async () => {
+    const users = await listUsers();
+    const ms = users.filter((u) => u.role === "mentor");
 
-      const withAvatar = await Promise.all(
-        ms.map(async (m) => {
-          const raw = await AsyncStorage.getItem(`${AVATAR_STORAGE_KEY}_${m.email}`);
-          const avatarId = Math.max(1, Math.min(Number(raw) || 1, AVATAR_OPTIONS.length));
-          return { m, avatarId } as const;
-        })
-      );
+    const withAvatar = await Promise.all(
+      ms.map(async (m) => {
+        const raw = await AsyncStorage.getItem(`${AVATAR_STORAGE_KEY}_${m.email}`);
+        const avatarId = Math.max(1, Math.min(Number(raw) || 1, AVATAR_OPTIONS.length));
+        return { m, avatarId } as const;
+      })
+    );
 
-      // Map repo mentors to UI rows; add dummy profile fields for now
-      const rows: MentorRow[] = withAvatar.map(({ m, avatarId }, idx) => ({
-        id: m.id,
-        email: m.email,
-        fullName: m.fullName,
-        isActive: m.isActive !== false,
-        avatarId,
-        age: 23 + ((idx * 3) % 9),
-        subject: ["Mathematics", "Science", "English", "Hindi", "Social Studies"][idx % 5],
-        degree: ["B.Ed", "M.Ed", "B.Tech + B.Ed", "B.A + B.Ed", "M.Sc"][idx % 5],
-        rating: [4.8, 4.6, 4.7, 4.4, 4.5][idx % 5],
-      }));
+    // Map repo mentors to UI rows; add dummy profile fields for now
+    const rows: MentorRow[] = withAvatar.map(({ m, avatarId }, idx) => ({
+      id: m.id,
+      email: m.email,
+      fullName: m.fullName,
+      isActive: m.isActive !== false,
+      avatarId,
+      age: 23 + ((idx * 3) % 9),
+      subject: ["Mathematics", "Science", "English", "Hindi", "Social Studies"][idx % 5],
+      degree: ["B.Ed", "M.Ed", "B.Tech + B.Ed", "B.A + B.Ed", "M.Sc"][idx % 5],
+      rating: [4.8, 4.6, 4.7, 4.4, 4.5][idx % 5],
+    }));
 
-      // Show active mentors (today's active) by default as requested
-      setMentors(rows.filter((r) => r.isActive));
-    })();
+    // All registered mentors (new signups are synced into repo via authService)
+    setMentors(rows);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadMentors();
+    }, [loadMentors])
+  );
 
   const filtered = useMemo(() => {
     const t = q.trim().toLowerCase();

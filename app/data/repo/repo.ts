@@ -2,6 +2,7 @@ import type {
   AppUser,
   Booking,
   JobPost,
+  MentorAdminRequest,
   MentorApplication,
   Subject,
   SubjectTopic,
@@ -18,6 +19,45 @@ async function boot() {
 export async function listUsers(): Promise<AppUser[]> {
   await boot();
   return readJson<AppUser[]>(KEYS.users, []);
+}
+
+/**
+ * Add or update a user in the local repo (same store Admin → Mentors / Assign uses).
+ * Call this when someone registers via auth so new mentors appear in admin lists.
+ */
+export async function upsertRepoUser(input: {
+  email: string;
+  fullName: string;
+  role: AppUser["role"];
+  isActive?: boolean;
+}): Promise<AppUser> {
+  await boot();
+  const items = await readJson<AppUser[]>(KEYS.users, []);
+  const email = input.email.trim().toLowerCase();
+  const fullName = input.fullName.trim();
+  const idx = items.findIndex((u) => u.email.trim().toLowerCase() === email);
+
+  const nextUser: AppUser =
+    idx >= 0
+      ? {
+          ...items[idx],
+          fullName,
+          role: input.role,
+          isActive: input.isActive ?? items[idx].isActive ?? true,
+        }
+      : {
+          id: makeId("usr"),
+          email,
+          fullName,
+          role: input.role,
+          createdAt: Date.now(),
+          isActive: input.isActive ?? true,
+        };
+
+  const next =
+    idx >= 0 ? items.map((u, i) => (i === idx ? nextUser : u)) : [nextUser, ...items];
+  await writeJson(KEYS.users, next);
+  return nextUser;
 }
 
 // Queries
@@ -110,6 +150,77 @@ export async function updateApplicationStatus(input: {
     a.id === input.applicationId ? { ...a, status: input.status, decidedAt: Date.now() } : a
   );
   await writeJson(KEYS.applications, next);
+}
+
+export async function createMentorApplication(
+  input: Omit<MentorApplication, "id" | "createdAt" | "status" | "decidedAt">
+) {
+  await boot();
+  const items = await readJson<MentorApplication[]>(KEYS.applications, []);
+  const next: MentorApplication = {
+    ...input,
+    id: makeId("app"),
+    status: "submitted",
+    createdAt: Date.now(),
+  };
+  await writeJson(KEYS.applications, [next, ...items]);
+  return next;
+}
+
+export async function listApplicationsByMentorEmail(
+  mentorEmail: string
+): Promise<MentorApplication[]> {
+  await boot();
+  const items = await readJson<MentorApplication[]>(KEYS.applications, []);
+  const e = mentorEmail.trim().toLowerCase();
+  return items.filter((a) => a.mentorEmail.trim().toLowerCase() === e);
+}
+
+// Admin → Mentor requests (parent match)
+export async function listMentorRequestsForEmail(
+  mentorEmail: string
+): Promise<MentorAdminRequest[]> {
+  await boot();
+  const items = await readJson<MentorAdminRequest[]>(KEYS.mentorRequests, []);
+  const e = mentorEmail.trim().toLowerCase();
+  return items
+    .filter((r) => r.mentorEmail.trim().toLowerCase() === e)
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function listAllMentorRequests(): Promise<MentorAdminRequest[]> {
+  await boot();
+  const items = await readJson<MentorAdminRequest[]>(KEYS.mentorRequests, []);
+  return [...items].sort((a, b) => b.createdAt - a.createdAt);
+}
+
+export async function createMentorAdminRequest(
+  input: Omit<MentorAdminRequest, "id" | "createdAt" | "status" | "decidedAt">
+) {
+  await boot();
+  const items = await readJson<MentorAdminRequest[]>(KEYS.mentorRequests, []);
+  const next: MentorAdminRequest = {
+    ...input,
+    id: makeId("mreq"),
+    status: "pending",
+    createdAt: Date.now(),
+  };
+  await writeJson(KEYS.mentorRequests, [next, ...items]);
+  return next;
+}
+
+export async function updateMentorRequestStatus(input: {
+  id: string;
+  status: MentorAdminRequest["status"];
+}) {
+  await boot();
+  const items = await readJson<MentorAdminRequest[]>(KEYS.mentorRequests, []);
+  const next = items.map((r) =>
+    r.id === input.id
+      ? { ...r, status: input.status, decidedAt: input.status === "pending" ? undefined : Date.now() }
+      : r
+  );
+  await writeJson(KEYS.mentorRequests, next);
 }
 
 // Subjects

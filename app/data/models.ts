@@ -63,7 +63,27 @@ export interface MentorApplication {
   subject: string;
   experienceYears?: number;
   resumeUri?: string;
+  /** Linked job post (optional) */
+  jobId?: EntityId;
+  contactPhone?: string;
+  contactEmail?: string;
   status: ApplicationStatus;
+  createdAt: number;
+  decidedAt?: number;
+}
+
+export type MentorRequestStatus = "pending" | "accepted" | "rejected";
+
+/** Admin → Mentor booking/parent match request */
+export interface MentorAdminRequest {
+  id: EntityId;
+  mentorEmail: string;
+  parentName: string;
+  parentLocation: string;
+  priceAmount: number;
+  currency?: string;
+  notes?: string;
+  status: MentorRequestStatus;
   createdAt: number;
   decidedAt?: number;
 }
